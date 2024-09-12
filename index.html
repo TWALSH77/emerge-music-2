@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emerge - Coming Soon</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            height: 100%;
+            background: #000;
+            color: #ffffff;
+            overflow: hidden;
+        }
+        #scene-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1;
+            text-align: center;
+            width: 80%;
+            max-width: 500px;
+        }
+        .content {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(45deg, #00FFFF, #FF00FF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: bold;
+        }
+        .tagline {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            color: #ffffff;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        input {
+            padding: 0.75rem;
+            border: none;
+            border-radius: 50px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            font-size: 1rem;
+            text-align: center;
+        }
+        button {
+            padding: 0.75rem;
+            border: none;
+            border-radius: 50px;
+            background: linear-gradient(45deg, #00FFFF, #FF00FF);
+            color: #ffffff;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div id="scene-container"></div>
+    <div class="container">
+        <div class="content">
+            <h1>Emerge</h1>
+            <p class="tagline">Coming Soon!</p>
+            <form id="signupForm">
+                <input type="email" placeholder="Enter your email for updates" required>
+                <button type="submit">Get Notified</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer, geometry, material, particles;
+        let audioContext, analyser, dataArray;
+        let isPlaying = false;
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('scene-container').appendChild(renderer.domElement);
+
+            geometry = new THREE.BoxGeometry(2, 2, 2, 16, 16, 16);
+            material = new THREE.PointsMaterial({ color: 0x00FFFF, size: 0.02 });
+            particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+
+            camera.position.z = 3;
+
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (isPlaying) {
+                analyser.getByteFrequencyData(dataArray);
+                let averageFrequency = dataArray.reduce((a, b) => a + b) / dataArray.length;
+
+                particles.rotation.x += 0.001 * (averageFrequency / 128);
+                particles.rotation.y += 0.002 * (averageFrequency / 128);
+
+                particles.geometry.vertices.forEach((vertex, i) => {
+                    let frequency = dataArray[i % dataArray.length] / 256;
+                    vertex.normalize().multiplyScalar(1 + 0.3 * frequency);
+                });
+                particles.geometry.verticesNeedUpdate = true;
+            } else {
+                particles.rotation.x += 0.001;
+                particles.rotation.y += 0.002;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function startAudio() {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            if (!isPlaying) {
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                    .then(stream => {
+                        let source = audioContext.createMediaStreamSource(stream);
+                        source.connect(analyser);
+                        isPlaying = true;
+                    })
+                    .catch(err => console.error('Error accessing microphone:', err));
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener('click', startAudio);
+
+        document.getElementById('signupForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            alert('Thank you for your interest! We\'ll notify you when Emerge launches.');
+        });
+    </script>
+</body>
+</html>
